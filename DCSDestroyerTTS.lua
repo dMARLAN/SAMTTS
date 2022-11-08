@@ -7,6 +7,7 @@ shipNames["CSGAD2"] = "LIMA" -- shipNames[UNIT NAME] = CALLSIGN
 ---------- DO NOT EDIT BELOW THIS LINE ----------
 local shotHandler = {}
 local messagesToSend = {}
+local engagedTargets = {}
 local messagePlaying = false
 local freqs = "255,262,259,268"
 local freqMod = "AM,AM,AM,AM"
@@ -174,15 +175,25 @@ local function messagePlayingFalse()
     messagePlaying = false
 end
 
+local function resetEngagedTarget(target)
+    engagedTargets[target:getName()] = false
+end
+
 local function checkMessagesToSend()
     if (#messagesToSend == 0) or messagePlaying then
         return
     end
+    -- setup
     messagePlaying = true
     local speechTime = STTS.getSpeechTime(messagesToSend[1][1], 1, true)
+
     playMessage(messagesToSend[1][1], messagesToSend[1][2], messagesToSend[1][3])
+    trigger.action.outText(messagesToSend[1][1], 10)
+
+    -- teardown
     table.remove(messagesToSend, 1)
     timer.scheduleFunction(messagePlayingFalse, nil, timer.getTime() + speechTime)
+
     timer.scheduleFunction(checkMessagesToSend, nil, timer.getTime() + speechTime)
 end
 
@@ -194,8 +205,13 @@ function shotHandler:onEvent(event)
         local bullseye = getBullseye(target)
         local impact = getImpact(event.initiator, target)
         local message = buildMessage(shipCallsign, bullseye, impact)
-        table.insert(messagesToSend, {message, shipCallsign, initiatorPoint})
-        checkMessagesToSend()
+
+        if (engagedTargets[target:getName()] == nil or engagedTargets[target:getName()] == false) then
+            engagedTargets[target:getName()] = true
+            table.insert(messagesToSend, {message, shipCallsign, initiatorPoint})
+            checkMessagesToSend()
+            timer.scheduleFunction(resetEngagedTarget, target, timer.getTime() + timeToImpact(target:getPoint(), target:getVelocity(), event.initiator:getPoint(), 1000) + 20)
+        end
     end
 end
 
