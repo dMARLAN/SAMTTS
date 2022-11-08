@@ -11,6 +11,10 @@ local messagePlaying = false
 local freqs = "255,262,259,268"
 local freqMod = "AM,AM,AM,AM"
 
+function addShip(name, callsign)
+    shipNames[name] = callsign
+end
+
 local function isASpecifiedShip(shipToCheck)
     if (not shipToCheck) then
         return false
