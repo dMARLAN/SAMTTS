@@ -36,10 +36,10 @@ end
 
 local function bearingToSingleDigits(bearing)
     local bearingString = ""
-    if ( bearing < 100) then
+    if (bearing < 100) then
         bearingString = bearingString .. "ZERO "
     end
-    if ( bearing < 10) then
+    if (bearing < 10) then
         bearingString = bearingString .. "ZERO ZERO "
     end
     for i = 1, string.len(bearing) do
@@ -89,8 +89,8 @@ local function getMagneticDeclination()
     return 0
 end
 
-local function getBullseye(target)
-    local bullsLO = coalition.getMainRefPoint(coalition.side.BLUE)
+local function getBullseye(target, groupCoalition)
+    local bullsLO = coalition.getMainRefPoint(groupCoalition)
     local distanceNm = math.floor(getDistanceFromTwoPoints(bullsLO, target:getPoint()) / 1852)
 
     if (distanceNm < 5) then
@@ -168,11 +168,11 @@ local function buildMessage(shipCallsign, bullseye, impact)
     return table.concat(msg)
 end
 
-local function playMessage(message, shipCallsign, initiatorPoint)
+local function playMessage(message, shipCallsign, initiatorPoint, groupCoalition)
     if (DEBUG) then
         trigger.action.outText(message, 10)
     end
-    STTS.TextToSpeech(message, freqs, freqMod, "1.0", shipCallsign, coalition.side.BLUE, initiatorPoint, 1, "male", "en-US", "en-US-Standard-J", true)
+    STTS.TextToSpeech(message, freqs, freqMod, "1.0", shipCallsign, groupCoalition, initiatorPoint, 1, "male", "en-US", "en-US-Standard-J", true)
 end
 
 local function messagePlayingFalse()
@@ -191,7 +191,7 @@ local function checkMessagesToSend()
     messagePlaying = true
     local speechTime = STTS.getSpeechTime(messagesToSend[1][1], 1, true)
 
-    playMessage(messagesToSend[1][1], messagesToSend[1][2], messagesToSend[1][3])
+    playMessage(messagesToSend[1][1], messagesToSend[1][2], messagesToSend[1][3], messagesToSend[1][4])
 
     -- teardown
     table.remove(messagesToSend, 1)
@@ -205,13 +205,14 @@ function shotHandler:onEvent(event)
         local target = event.weapon:getTarget()
         local initiatorPoint = event.initiator:getPoint()
         local samCallsign = samNames[Unit.getGroup(event.initiator):getName()]
-        local bullseye = getBullseye(target)
+        local groupCoalition = event.initiator:getCoalition()
+        local bullseye = getBullseye(target, groupCoalition)
         local impact = getImpact(event.initiator, target)
         local message = buildMessage(samCallsign, bullseye, impact)
 
         if (engagedTargets[target:getName()] == nil or engagedTargets[target:getName()] == false) then
             engagedTargets[target:getName()] = true
-            table.insert(messagesToSend, { message, samCallsign, initiatorPoint})
+            table.insert(messagesToSend, { message, samCallsign, initiatorPoint, groupCoalition })
             checkMessagesToSend()
             timer.scheduleFunction(resetEngagedTarget, target, timer.getTime() + timeToImpact(target:getPoint(), target:getVelocity(), event.initiator:getPoint(), 1000) + 20)
         end
