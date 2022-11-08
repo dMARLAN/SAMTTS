@@ -8,13 +8,8 @@ shipNames["CSGAD2"] = "LIMA" -- shipNames[UNIT NAME] = CALLSIGN
 local shotHandler = {}
 local messagesToSend = {}
 local messagePlaying = false
-local addShip
 local freqs = "255,262,259,268"
 local freqMod = "AM,AM,AM,AM"
-
-function addShip(shipGroupName, shipCallsign)
-    shipNames[shipGroupName] = shipCallsign
-end
 
 local function isASpecifiedShip(shipToCheck)
     if (not shipToCheck) then
