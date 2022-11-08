@@ -1,4 +1,4 @@
---- DEPENDS ON: SAMTTS.lua
+--- DEPENDS ON: DCS-SimpleTextToSpeech.lua
 --- @author: dMARLAN
 --- @version: 1.0
 --- @date: 2022-11-08
@@ -8,13 +8,27 @@ local shotHandler = {}
 local messagesToSend = {}
 local engagedTargets = {}
 local messagePlaying = false
-local freqs = "255,262,259,268"
-local freqMod = "AM,AM,AM,AM"
 local DEBUG = false
+local coalitionParams = {}
 SAMTTS = {}
 
 function SAMTTS.addSAM(name, callsign)
     samNames[name] = callsign
+end
+
+function SAMTTS.setCoalitionParams(pCoalition, pFreqs, pFreqMod, pGender, pLocale, pVoice, pGoogleTTS)
+    if (pCoalition == "RED") then
+        pCoalition = coalition.side.RED
+    else
+        pCoalition = coalition.side.BLUE
+    end
+    pFreqs = pFreqs or "251"
+    pFreqMod = pFreqMod or "AM"
+    pGender = pGender or "male"
+    pLocale = pLocale or "en-US"
+    pVoice = pVoice or "Microsoft Richard Desktop"
+    pGoogleTTS = pGoogleTTS or false
+    coalitionParams[pCoalition] = { freqs = pFreqs, freqMods = pFreqMod, locale = pLocale, voice = pVoice, googleTTS = pGoogleTTS }
 end
 
 local function isASpecifiedSAM(samToCheck)
@@ -172,7 +186,19 @@ local function playMessage(message, shipCallsign, initiatorPoint, groupCoalition
     if (DEBUG) then
         trigger.action.outText(message, 10)
     end
-    STTS.TextToSpeech(message, freqs, freqMod, "1.0", shipCallsign, groupCoalition, initiatorPoint, 1, "male", "en-US", "en-US-Standard-J", true)
+    STTS.TextToSpeech(message,
+            coalitionParams[groupCoalition]["freqs"],
+            coalitionParams[groupCoalition]["freqMods"],
+            "1.0",
+            shipCallsign,
+            groupCoalition,
+            initiatorPoint,
+            1,
+            coalitionParams[groupCoalition]["gender"],
+            coalitionParams[groupCoalition]["locale"],
+            coalitionParams[groupCoalition]["voice"],
+            coalitionParams[groupCoalition]["googleTTS"]
+    )
 end
 
 local function messagePlayingFalse()
