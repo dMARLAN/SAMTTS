@@ -1,28 +1,29 @@
+--- DEPENDS ON: SAMTTS.lua
+--- @author: dMARLAN
+--- @version: 1.0
+--- @date: 2022-11-08
 
--- Insert ship names that will be checked for missile launches below.
-local shipNames = {}
-shipNames["CSGAD1"] = "KILO" -- shipNames[UNIT NAME] = CALLSIGN
-shipNames["CSGAD2"] = "LIMA" -- shipNames[UNIT NAME] = CALLSIGN
-
----------- DO NOT EDIT BELOW THIS LINE ----------
+local samNames = {}
 local shotHandler = {}
 local messagesToSend = {}
 local engagedTargets = {}
 local messagePlaying = false
 local freqs = "255,262,259,268"
 local freqMod = "AM,AM,AM,AM"
+local DEBUG = false
+SAMTTS = {}
 
-function addShip(name, callsign)
-    shipNames[name] = callsign
+function SAMTTS.addSAM(name, callsign)
+    samNames[name] = callsign
 end
 
-local function isASpecifiedShip(shipToCheck)
-    if (not shipToCheck) then
+local function isASpecifiedSAM(samToCheck)
+    if (not samToCheck) then
         return false
     end
-    local shipNameToCheck = Unit.getName(shipToCheck)
-    for shipName, _ in pairs(shipNames) do
-        if (shipNameToCheck == shipName) then
+    local samNameToCheck = Unit.getGroup(samToCheck):getName()
+    for samName, _ in pairs(samNames) do
+        if (samNameToCheck == samName) then
             return true
         end
     end
@@ -168,6 +169,9 @@ local function buildMessage(shipCallsign, bullseye, impact)
 end
 
 local function playMessage(message, shipCallsign, initiatorPoint)
+    if (DEBUG) then
+        trigger.action.outText(message, 10)
+    end
     STTS.TextToSpeech(message, freqs, freqMod, "1.0", shipCallsign, coalition.side.BLUE, initiatorPoint, 1, "male", "en-US", "en-US-Standard-J", true)
 end
 
@@ -188,7 +192,6 @@ local function checkMessagesToSend()
     local speechTime = STTS.getSpeechTime(messagesToSend[1][1], 1, true)
 
     playMessage(messagesToSend[1][1], messagesToSend[1][2], messagesToSend[1][3])
-    trigger.action.outText(messagesToSend[1][1], 10)
 
     -- teardown
     table.remove(messagesToSend, 1)
@@ -198,17 +201,17 @@ local function checkMessagesToSend()
 end
 
 function shotHandler:onEvent(event)
-    if event.id == world.event.S_EVENT_SHOT and event.weapon:getTarget() and isASpecifiedShip(event.initiator) then
+    if event.id == world.event.S_EVENT_SHOT and event.weapon:getTarget() and isASpecifiedSAM(event.initiator) then
         local target = event.weapon:getTarget()
         local initiatorPoint = event.initiator:getPoint()
-        local shipCallsign = shipNames[Unit.getName(event.initiator)]
+        local samCallsign = samNames[Unit.getGroup(event.initiator):getName()]
         local bullseye = getBullseye(target)
         local impact = getImpact(event.initiator, target)
-        local message = buildMessage(shipCallsign, bullseye, impact)
+        local message = buildMessage(samCallsign, bullseye, impact)
 
         if (engagedTargets[target:getName()] == nil or engagedTargets[target:getName()] == false) then
             engagedTargets[target:getName()] = true
-            table.insert(messagesToSend, {message, shipCallsign, initiatorPoint})
+            table.insert(messagesToSend, { message, samCallsign, initiatorPoint})
             checkMessagesToSend()
             timer.scheduleFunction(resetEngagedTarget, target, timer.getTime() + timeToImpact(target:getPoint(), target:getVelocity(), event.initiator:getPoint(), 1000) + 20)
         end
