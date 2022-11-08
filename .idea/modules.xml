@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/DestroyerTTS.iml" filepath="$PROJECT_DIR$/DestroyerTTS.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SAMTTS.iml" filepath="$PROJECT_DIR$/SAMTTS.iml" />
     </modules>
   </component>
 </project>
