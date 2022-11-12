@@ -1,5 +1,5 @@
 --- @author: dMARLAN
---- @version: 1.4
+--- @version: 1.4.1
 --- @date: 2022-11-12
 --- DEPENDENCY: DCS-SimpleTextToSpeech.lua
 
@@ -85,7 +85,7 @@ local function bearingToSingleDigits(bearing)
             bearingString = bearingString .. string.sub(bearing, i, i) .. " "
         end
     end
-    return bearingString:sub(1,-2)
+    return bearingString:sub(1, -2)
 end
 
 local function getBearingFromTwoPoints(p1, p2)
@@ -197,25 +197,33 @@ local function getImpact(interceptor, target)
     return " IMPACT, " .. timeToEnglish(timeToImpact(target:getPoint(), target:getVelocity(), interceptor:getPoint(), 1000))
 end
 
-local function buildSamMessage(samCallsign, bullseye, impact)
-    local msg = {}
-    msg[#msg + 1] = samCallsign
-    msg[#msg + 1] = ", BIRDS AWAY, TARGETED, " .. bullseye .. impact
-    return table.concat(msg)
+local function callsignNumberFix(callsign)
+    return callsign:sub(1, -3):upper() .. " " .. callsign:sub(-2, -2) .. " " .. callsign:sub(-1, -1)
 end
 
-local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye, ejected)
-    trigger.action.outText("Ejected: " .. tostring(ejected), 10)
-    if (ejected == true) then
-        ejected = ", EJECTED, "
+local engagedTargets = {}
+local function resetEngagedTarget(target)
+    engagedTargets[target:getName()] = false
+end
+
+local liftedGroups = {}
+local function resetLiftedGroup(group)
+    liftedGroups[group:getName()] = false
+end
+
+local messagePlaying = {}
+messagePlaying[coalition.side.BLUE] = false
+messagePlaying[coalition.side.RED] = false
+local function messagePlayingFalse(groupCoalition)
+    messagePlaying[groupCoalition] = false
+end
+
+local function oppositeCoalition(pCoalition)
+    if (pCoalition == coalition.side.BLUE) then
+        return coalition.side.RED
     else
-        ejected = ", IS DOWN, LAST KNOWN "
+        return coalition.side.BLUE
     end
-    local msg = {}
-    msg[#msg + 1] = wcCallsign
-    msg[#msg + 1] = ", RIGHT GUARD, " .. pilotCallsign
-    msg[#msg + 1] = ejected .. bullseye
-    return table.concat(msg)
 end
 
 local function playMessage(message, unitName, callsign, initiatorPoint, pCoalition)
@@ -250,18 +258,6 @@ local function playMessage(message, unitName, callsign, initiatorPoint, pCoaliti
     end
 end
 
-local messagePlaying = {}
-messagePlaying[coalition.side.BLUE] = false
-messagePlaying[coalition.side.RED] = false
-local function messagePlayingFalse(groupCoalition)
-    messagePlaying[groupCoalition] = false
-end
-
-local engagedTargets = {}
-local function resetEngagedTarget(target)
-    engagedTargets[target:getName()] = false
-end
-
 local messages = {}
 messages[coalition.side.BLUE] = {}
 messages[coalition.side.RED] = {}
@@ -274,11 +270,11 @@ local function checkMessagesToSend(groupCoalition)
     messagePlaying[groupCoalition] = true
 
     playMessage(
-        messages[groupCoalition][1]["message"],
-        messages[groupCoalition][1]["unitName"],
-        messages[groupCoalition][1]["callsign"],
-        messages[groupCoalition][1]["initiatorPoint"],
-        messages[groupCoalition][1]["groupCoalition"]
+            messages[groupCoalition][1]["message"],
+            messages[groupCoalition][1]["unitName"],
+            messages[groupCoalition][1]["callsign"],
+            messages[groupCoalition][1]["initiatorPoint"],
+            messages[groupCoalition][1]["groupCoalition"]
     )
 
     -- teardown
@@ -291,6 +287,41 @@ end
 local function addMessageToQueue(params)
     table.insert(messages[params["pCoalition"]], { message = params["message"], unitName = params["unitName"], callsign = params["callsign"], params["initiatorPoint"], groupCoalition = params["pCoalition"] })
     checkMessagesToSend(params["pCoalition"])
+end
+
+local function buildSamMessage(samCallsign, bullseye, impact)
+    local msg = {}
+    msg[#msg + 1] = samCallsign
+    msg[#msg + 1] = ", BIRDS AWAY, TARGETED, " .. bullseye .. impact
+    return table.concat(msg)
+end
+
+local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye, ejected)
+    trigger.action.outText("Ejected: " .. tostring(ejected), 10)
+    if (ejected == true) then
+        ejected = ", EJECTED, "
+    else
+        ejected = ", IS DOWN, LAST KNOWN "
+    end
+    local msg = {}
+    msg[#msg + 1] = wcCallsign
+    msg[#msg + 1] = ", RIGHT GUARD, " .. pilotCallsign
+    msg[#msg + 1] = ejected .. bullseye
+    return table.concat(msg)
+end
+
+local function buildLiftingMessage(wcCallsign, airbaseName, bullseye, size)
+    if (size == 1) then
+        size = "SINGLE"
+    elseif (size > 2) then
+        size = "HEAVY " .. size
+    end
+    local msg = {}
+    msg[#msg + 1] = wcCallsign
+    msg[#msg + 1] = ", GROUP LIFTING AT " .. airbaseName
+    msg[#msg + 1] = ", " .. bullseye .. " "
+    msg[#msg + 1] = size .. " CONTACTS"
+    return table.concat(msg)
 end
 
 local shotHandler = {}
@@ -311,10 +342,6 @@ function shotHandler:onEvent(event)
             timer.scheduleFunction(resetEngagedTarget, target, timer.getTime() + timeToImpact(target:getPoint(), target:getVelocity(), iPoint, 1000) + 20)
         end
     end
-end
-
-local function callsignNumberFix(callsign)
-    return callsign:sub(1, -3):upper() .. " " .. callsign:sub(-2,-2) .. " " .. callsign:sub(-1,-1)
 end
 
 local pilotDownHandler = {}
@@ -347,37 +374,9 @@ function pilotDownHandler:onEvent(event)
     end
 end
 
-local function oppositeCoalition(pCoalition)
-    if (pCoalition == coalition.side.BLUE) then
-        return coalition.side.RED
-    else
-        return coalition.side.BLUE
-    end
-end
-
-local function buildLiftingMessage(wcCallsign, airbaseName, bullseye, size)
-    if (size == 1) then
-        size = "SINGLE"
-    elseif (size > 2) then
-        size = "HEAVY " .. size
-    end
-    local msg = {}
-    msg[#msg + 1] = wcCallsign
-    msg[#msg + 1] = ", GROUP LIFTING AT " .. airbaseName
-    msg[#msg + 1] = ", " .. bullseye .. " "
-    msg[#msg + 1] = size .. " CONTACTS"
-    return table.concat(msg)
-end
-
-
-local liftedGroups = {}
-local function resetLiftedGroup(group)
-    liftedGroups[group:getName()] = false
-end
-
 local liftingHandler = {}
 function liftingHandler:onEvent(event)
-    if event.id == world.event.S_EVENT_TAKEOFF and coalitionWarningController[oppositeCoalition(event.initiator:getCoalition())] ~= nil  then
+    if event.id == world.event.S_EVENT_TAKEOFF and coalitionWarningController[oppositeCoalition(event.initiator:getCoalition())] ~= nil then
         local liftedGroup = event.initiator:getGroup()
         local oppositeICoalition = oppositeCoalition(event.initiator:getCoalition())
         local wcCallsign = coalitionWarningController[oppositeICoalition]["callsign"]
