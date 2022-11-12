@@ -5,7 +5,7 @@
 
 SAMTTS = {}
 SAMTTS.googleTTS = false
-local DEBUG = true
+SAMTTS.debug = false
 
 local function selectRandomVoice()
     local voices = {
@@ -33,32 +33,33 @@ local function selectRandomVoice()
     return voices[math.random(1, #voices)]
 end
 
-local coalitionWarningController = {}
-function SAMTTS.setWarningController(unitName, pCoalition)
-    if (pCoalition == "RED") then
-        pCoalition = coalition.side.RED
+local function parseCoalitionString(string)
+    if (string == "RED") then
+        return coalition.side.RED
     else
-        pCoalition = coalition.side.BLUE
+        return coalition.side.BLUE
     end
-    coalitionWarningController[pCoalition] = unitName
 end
 
 local speaker = {}
 speaker[coalition.side.RED] = {}
 speaker[coalition.side.BLUE] = {}
-function SAMTTS.addSpeaker(unitName, callsign, pCoalition, freqs, modulation)
-    if (pCoalition == "RED") then
-        pCoalition = coalition.side.RED
-    else
-        pCoalition = coalition.side.BLUE
-    end
-    speaker[pCoalition][callsign] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
+function SAMTTS.addSAM(unitName, callsign, pCoalition, freqs, modulation)
+    pCoalition = parseCoalitionString(pCoalition)
+    speaker[pCoalition][unitName] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
+end
+
+local coalitionWarningController = {}
+function SAMTTS.addWarningController(unitName, callsign, pCoalition, freqs, modulation)
+    pCoalition = parseCoalitionString(pCoalition)
+    coalitionWarningController[pCoalition] = { unitName = unitName, callsign = callsign }
+    speaker[pCoalition][unitName] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
 end
 
 local function isASpecifiedSAM(samToCheck, pCoalition)
     local samNameToCheck = Unit.getGroup(samToCheck):getName()
-    for callsign, _ in pairs(speaker[pCoalition]) do
-        if (samNameToCheck == speaker[pCoalition][callsign]["unitName"]) then
+    for unitName, _ in pairs(speaker[pCoalition]) do
+        if (samNameToCheck == speaker[pCoalition][unitName]["unitName"]) then
             return true
         end
     end
@@ -211,15 +212,15 @@ local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye)
     return table.concat(msg)
 end
 
-local function playMessage(message, callsign, initiatorPoint, pCoalition)
-    if (DEBUG) then
+local function playMessage(message, unitName, callsign, initiatorPoint, pCoalition)
+    if (SAMTTS.debug) then
         trigger.action.outText("DEBUG: " .. message, 10)
     end
     if (SAMTTS.googleTTS) then
         STTS.TextToSpeech(
                 message,
-                speaker[pCoalition][callsign]["freqs"],
-                speaker[pCoalition][callsign]["modulation"],
+                speaker[pCoalition][unitName]["freqs"],
+                speaker[pCoalition][unitName]["modulation"],
                 "1.0",
                 callsign,
                 pCoalition,
@@ -227,14 +228,14 @@ local function playMessage(message, callsign, initiatorPoint, pCoalition)
                 1,
                 "male",
                 "en-US",
-                speaker[pCoalition][callsign]["voice"],
+                speaker[pCoalition][unitName]["voice"],
                 true
         )
     else
         STTS.TextToSpeech(
                 message,
-                speaker[pCoalition][callsign]["freqs"],
-                speaker[pCoalition][callsign]["modulation"],
+                speaker[pCoalition][unitName]["freqs"],
+                speaker[pCoalition][unitName]["modulation"],
                 "1.0",
                 callsign,
                 pCoalition
@@ -267,13 +268,14 @@ local function checkMessagesToSend(groupCoalition)
 
     playMessage(
         messages[groupCoalition][1]["message"],
+        messages[groupCoalition][1]["unitName"],
         messages[groupCoalition][1]["callsign"],
         messages[groupCoalition][1]["initiatorPoint"],
         messages[groupCoalition][1]["groupCoalition"]
     )
 
     -- teardown
-    local speechTime = STTS.getSpeechTime(messages[groupCoalition][1]["message"], 1, true) + 3
+    local speechTime = STTS.getSpeechTime(messages[groupCoalition][1]["message"], 1, true)
     table.remove(messages[groupCoalition], 1)
     timer.scheduleFunction(messagePlayingFalse, groupCoalition, timer.getTime() + speechTime)
     timer.scheduleFunction(checkMessagesToSend, groupCoalition, timer.getTime() + speechTime)
@@ -292,7 +294,7 @@ function shotHandler:onEvent(event)
 
         if (engagedTargets[target:getName()] == nil or engagedTargets[target:getName()] == false) then
             engagedTargets[target:getName()] = true
-            table.insert(messages[iCoalition], { message = message, callsign = iCallsign, initiatorPoint = iPoint, groupCoalition = iCoalition })
+            table.insert(messages[iCoalition], { message = message, unitName = event.initiator:getGroup():getName(), callsign = iCallsign, initiatorPoint = iPoint, groupCoalition = iCoalition })
             checkMessagesToSend(iCoalition)
             timer.scheduleFunction(resetEngagedTarget, target, timer.getTime() + timeToImpact(target:getPoint(), target:getVelocity(), iPoint, 1000) + 20)
         end
@@ -300,7 +302,7 @@ function shotHandler:onEvent(event)
 end
 
 local function callsignNumberFix(callsign)
-    return callsign:sub(1, -3) .. " " .. callsign:sub(-2,-2) .. " " .. callsign:sub(-1,-1)
+    return callsign:sub(1, -3):upper() .. " " .. callsign:sub(-2,-2) .. " " .. callsign:sub(-1,-1)
 end
 
 local pilotDownHandler = {}
@@ -308,11 +310,11 @@ function pilotDownHandler:onEvent(event)
     if (event.id == world.event.S_EVENT_EJECTION or event.id == world.event.S_EVENT_PILOT_DEAD) and coalitionWarningController[event.initiator:getCoalition()] ~= nil then
         local pilotCallsign = callsignNumberFix(event.initiator:getCallsign())
         local iCoalition = event.initiator:getCoalition()
-        local iCallsign = coalitionWarningController[iCoalition]
+        local iCallsign = coalitionWarningController[iCoalition]["callsign"]
         local iBullseye = getBullseye(event.initiator, iCoalition)
-        local message = buildPilotDownMessage(coalitionWarningController[iCoalition], pilotCallsign, iBullseye)
+        local message = buildPilotDownMessage(iCallsign, pilotCallsign, iBullseye)
 
-        table.insert(messages[iCoalition], { message = message, callsign = iCallsign, nil, groupCoalition = iCoalition })
+        table.insert(messages[iCoalition], { message = message, unitName = coalitionWarningController[iCoalition]["unitName"], callsign = iCallsign, nil, groupCoalition = iCoalition })
         checkMessagesToSend(iCoalition)
     end
 end
