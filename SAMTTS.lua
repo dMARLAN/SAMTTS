@@ -1,7 +1,7 @@
 --- @author: dMARLAN
 --- @version: 1.4.1
 --- @date: 2022-11-12
---- DEPENDENCY: DCS-SimpleTextToSpeech.lua
+--- DEPENDENCY: DCS-SimpleTextToSpeech.lua by CiriBob -- https://github.com/ciribob/DCS-SimpleTextToSpeech
 
 SAMTTS = {}
 SAMTTS.googleTTS = false
