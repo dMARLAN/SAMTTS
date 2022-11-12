@@ -1,7 +1,9 @@
-SAMTTS.addSAM("CSGAD1", "KILO")
-SAMTTS.addSAM("CSGAD2", "LIMA")
-SAMTTS.addSAM("PAT1", "PAPA")
 
-SAMTTS.setCoalitionParams("BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM", "male", "en-US", "en-US-Standard-J", true)
+SAMTTS.googleTTS = true
 
-SAMTTS.setWarningControlCallsign("BLUE", "DEEP-SEA")
+SAMTTS.addSpeaker("KILO", "KILO", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+SAMTTS.addSpeaker("LIMA", "LIMA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+SAMTTS.addSpeaker("PAPA", "PAPA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+SAMTTS.addSpeaker("DEEP SEA", "DEEP SEA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+
+SAMTTS.setWarningController("DEEP SEA", "BLUE")
