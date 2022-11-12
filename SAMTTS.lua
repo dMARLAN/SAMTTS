@@ -30,11 +30,7 @@ local function selectRandomVoice()
         "en-IN-Wavenet-B",
         "en-IN-Wavenet-C"
     }
-    if (SAMTTS.googleTTS) then
-        return voices[math.random(1, #voices)]
-    else
-        return "Microsoft Richard Desktop"
-    end
+    return voices[math.random(1, #voices)]
 end
 
 local coalitionWarningController = {}
@@ -88,7 +84,7 @@ local function bearingToSingleDigits(bearing)
             bearingString = bearingString .. string.sub(bearing, i, i) .. " "
         end
     end
-    return bearingString
+    return bearingString:sub(1,-2)
 end
 
 local function getBearingFromTwoPoints(p1, p2)
@@ -219,20 +215,31 @@ local function playMessage(message, callsign, initiatorPoint, pCoalition)
     if (DEBUG) then
         trigger.action.outText("DEBUG: " .. message, 10)
     end
-    STTS.TextToSpeech(
-            message,
-            speaker[pCoalition][callsign]["freqs"],
-            speaker[pCoalition][callsign]["modulation"],
-            "1.0",
-            callsign,
-            pCoalition,
-            initiatorPoint,
-            1,
-            "male",
-            "en-US",
-            speaker[pCoalition][callsign]["voice"],
-            SAMTTS.googleTTS
-    )
+    if (SAMTTS.googleTTS) then
+        STTS.TextToSpeech(
+                message,
+                speaker[pCoalition][callsign]["freqs"],
+                speaker[pCoalition][callsign]["modulation"],
+                "1.0",
+                callsign,
+                pCoalition,
+                initiatorPoint,
+                1,
+                "male",
+                "en-US",
+                speaker[pCoalition][callsign]["voice"],
+                true
+        )
+    else
+        STTS.TextToSpeech(
+                message,
+                speaker[pCoalition][callsign]["freqs"],
+                speaker[pCoalition][callsign]["modulation"],
+                "1.0",
+                callsign,
+                pCoalition
+        )
+    end
 end
 
 local messagePlaying = {}
@@ -245,19 +252,6 @@ end
 local engagedTargets = {}
 local function resetEngagedTarget(target)
     engagedTargets[target:getName()] = false
-end
-
-function dump(o)
-    if type(o) == 'table' then
-        local s = '{ '
-        for k,v in pairs(o) do
-            if type(k) ~= 'number' then k = '"'..k..'"' end
-            s = s .. '['..k..'] = ' .. dump(v) .. ','
-        end
-        return s .. '} '
-    else
-        return tostring(o)
-    end
 end
 
 local messages = {}
