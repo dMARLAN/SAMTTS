@@ -215,6 +215,7 @@ end
 local function playMessage(message, unitName, callsign, initiatorPoint, pCoalition)
     if (SAMTTS.debug) then
         trigger.action.outText("DEBUG: " .. message, 10)
+        trigger.action.outText("DEBUG: " .. speaker[pCoalition][unitName]["voice"], 10)
     end
     if (SAMTTS.googleTTS) then
         STTS.TextToSpeech(
