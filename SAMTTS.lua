@@ -297,7 +297,6 @@ local function buildSamMessage(samCallsign, bullseye, impact)
 end
 
 local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye, ejected)
-    trigger.action.outText("Ejected: " .. tostring(ejected), 10)
     if (ejected == true) then
         ejected = ", EJECTED, "
     else
