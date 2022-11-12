@@ -1,7 +1,7 @@
---- DEPENDS ON: DCS-SimpleTextToSpeech.lua
 --- @author: dMARLAN
---- @version: 1.1
---- @date: 2022-11-08
+--- @version: 1.4
+--- @date: 2022-11-12
+--- DEPENDENCY: DCS-SimpleTextToSpeech.lua
 
 SAMTTS = {}
 SAMTTS.googleTTS = false
@@ -204,11 +204,17 @@ local function buildSamMessage(samCallsign, bullseye, impact)
     return table.concat(msg)
 end
 
-local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye)
+local function buildPilotDownMessage(wcCallsign, pilotCallsign, bullseye, ejected)
+    trigger.action.outText("Ejected: " .. tostring(ejected), 10)
+    if (ejected == true) then
+        ejected = ", EJECTED, "
+    else
+        ejected = ", IS DOWN, LAST KNOWN "
+    end
     local msg = {}
     msg[#msg + 1] = wcCallsign
     msg[#msg + 1] = ", RIGHT GUARD, " .. pilotCallsign
-    msg[#msg + 1] = ", IS DOWN, " .. bullseye
+    msg[#msg + 1] = ejected .. bullseye
     return table.concat(msg)
 end
 
@@ -282,6 +288,11 @@ local function checkMessagesToSend(groupCoalition)
     timer.scheduleFunction(checkMessagesToSend, groupCoalition, timer.getTime() + speechTime)
 end
 
+local function addMessageToQueue(params)
+    table.insert(messages[params["pCoalition"]], { message = params["message"], unitName = params["unitName"], callsign = params["callsign"], params["initiatorPoint"], groupCoalition = params["pCoalition"] })
+    checkMessagesToSend(params["pCoalition"])
+end
+
 local shotHandler = {}
 function shotHandler:onEvent(event)
     if event.id == world.event.S_EVENT_SHOT and event.weapon:getTarget() and isASpecifiedSAM(event.initiator, event.initiator:getCoalition()) and speaker[event.initiator:getCoalition()][event.initiator:getGroup():getName()] ~= nil then
@@ -311,17 +322,87 @@ function pilotDownHandler:onEvent(event)
     if (event.id == world.event.S_EVENT_EJECTION or event.id == world.event.S_EVENT_PILOT_DEAD) and coalitionWarningController[event.initiator:getCoalition()] ~= nil then
         local pilotCallsign = callsignNumberFix(event.initiator:getCallsign())
         local iCoalition = event.initiator:getCoalition()
-        local iCallsign = coalitionWarningController[iCoalition]["callsign"]
+        local wcCallsign = coalitionWarningController[iCoalition]["callsign"]
         local iBullseye = getBullseye(event.initiator, iCoalition)
-        local message = buildPilotDownMessage(iCallsign, pilotCallsign, iBullseye)
 
-        table.insert(messages[iCoalition], { message = message, unitName = coalitionWarningController[iCoalition]["unitName"], callsign = iCallsign, nil, groupCoalition = iCoalition })
-        checkMessagesToSend(iCoalition)
+        local delay = 1
+        local ejected = false
+        if (event.id == world.event.S_EVENT_EJECTION) then
+            delay = 10
+            ejected = true
+        else
+            delay = 30
+        end
+
+        local message = buildPilotDownMessage(wcCallsign, pilotCallsign, iBullseye, ejected)
+
+        local params = {
+            message = message,
+            unitName = coalitionWarningController[iCoalition]["unitName"],
+            callsign = wcCallsign,
+            initiatorPoint = nil,
+            pCoalition = iCoalition
+        }
+        timer.scheduleFunction(addMessageToQueue, params, timer.getTime() + delay)
+    end
+end
+
+local function oppositeCoalition(pCoalition)
+    if (pCoalition == coalition.side.BLUE) then
+        return coalition.side.RED
+    else
+        return coalition.side.BLUE
+    end
+end
+
+local function buildLiftingMessage(wcCallsign, airbaseName, bullseye, size)
+    if (size == 1) then
+        size = "SINGLE"
+    elseif (size > 2) then
+        size = "HEAVY " .. size
+    end
+    local msg = {}
+    msg[#msg + 1] = wcCallsign
+    msg[#msg + 1] = ", GROUP LIFTING AT " .. airbaseName
+    msg[#msg + 1] = ", " .. bullseye .. " "
+    msg[#msg + 1] = size .. " CONTACTS"
+    return table.concat(msg)
+end
+
+
+local liftedGroups = {}
+local function resetLiftedGroup(group)
+    liftedGroups[group:getName()] = false
+end
+
+local liftingHandler = {}
+function liftingHandler:onEvent(event)
+    if event.id == world.event.S_EVENT_TAKEOFF and coalitionWarningController[oppositeCoalition(event.initiator:getCoalition())] ~= nil  then
+        local liftedGroup = event.initiator:getGroup()
+        local oppositeICoalition = oppositeCoalition(event.initiator:getCoalition())
+        local wcCallsign = coalitionWarningController[oppositeICoalition]["callsign"]
+        local pName = event.place:getName()
+        local pBullseye = getBullseye(event.place, oppositeICoalition)
+        local message = buildLiftingMessage(wcCallsign, pName, pBullseye, liftedGroup:getSize())
+
+        if (liftedGroups[liftedGroup:getName()] == nil or liftedGroups[liftedGroup:getName()] == false) then
+            liftedGroups[liftedGroup:getName()] = true
+            local params = {
+                message = message,
+                unitName = coalitionWarningController[oppositeICoalition]["unitName"],
+                callsign = wcCallsign,
+                initiatorPoint = event.place:getPoint(),
+                pCoalition = oppositeICoalition
+            }
+            timer.scheduleFunction(addMessageToQueue, params, timer.getTime() + 20)
+            timer.scheduleFunction(resetLiftedGroup, liftedGroup, timer.getTime() + 300)
+        end
     end
 end
 
 local function main()
     world.addEventHandler(shotHandler)
     world.addEventHandler(pilotDownHandler)
+    world.addEventHandler(liftingHandler)
 end
 main()
