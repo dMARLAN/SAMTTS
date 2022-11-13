@@ -45,6 +45,9 @@ local speaker = {}
 speaker[coalition.side.RED] = {}
 speaker[coalition.side.BLUE] = {}
 function SAMTTS.addSAM(unitName, callsign, pCoalition, freqs, modulation)
+    if not (Unit.getByName(unitName)) then
+        return
+    end
     pCoalition = parseCoalitionString(pCoalition)
     speaker[pCoalition][unitName] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
 end
