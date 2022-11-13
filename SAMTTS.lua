@@ -314,15 +314,17 @@ end
 
 local function buildLiftingMessage(wcCallsign, airbaseName, bullseye, size)
     if (size == 1) then
-        size = "SINGLE"
+        size = " SINGLE CONTACT"
     elseif (size > 2) then
-        size = "HEAVY " .. size
+        size = " HEAVY " .. size .. " CONTACTS"
+    else
+        size = " " .. size .. " CONTACTS"
     end
     local msg = {}
     msg[#msg + 1] = wcCallsign
     msg[#msg + 1] = ", GROUP LIFTING AT " .. airbaseName
     msg[#msg + 1] = ", " .. bullseye .. " "
-    msg[#msg + 1] = size .. " CONTACTS"
+    msg[#msg + 1] = size
     return table.concat(msg)
 end
 
