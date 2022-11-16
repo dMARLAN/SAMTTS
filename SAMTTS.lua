@@ -1,5 +1,5 @@
 --- @author: dMARLAN
---- @version: 1.4.2
+--- @version: 1.5.0
 --- @date: 2022-11-15
 --- DEPENDENCY: DCS-SimpleTextToSpeech.lua by CiriBob -- https://github.com/ciribob/DCS-SimpleTextToSpeech
 
