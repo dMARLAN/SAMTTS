@@ -9,7 +9,6 @@ SAMTTS = {}
 SAMTTS.googleTTS = false
 SAMTTS.debug = false
 
-
 local function selectRandomVoice()
     local voices = {
         "en-US-Standard-A",
@@ -94,23 +93,28 @@ local function bearingToSingleDigits(bearing)
     return bearingString:sub(1, -2)
 end
 
-local function getBearingFromTwoPoints(p1, p2)
-    local p1Lat, p1Lon, _ = coord.LOtoLL(p1)
-    local p2Lat, p2Lon, _ = coord.LOtoLL(p2)
-    local lat1 = math.rad(p1Lat)
-    local lon1 = math.rad(p1Lon)
-    local lat2 = math.rad(p2Lat)
-    local lon2 = math.rad(p2Lon)
-
-    local dLon = lon2 - lon1
-    local y = math.sin(dLon) * math.cos(lat2)
-    local x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dLon)
-    return (math.deg(math.atan2(y, x)) + 360) % 360
+local function getMagneticDeclinationRad(point)
+    local lat, lon, _ = coord.LOtoLL(point)
+    return magvar.get_mag_decl(lat, lon)
 end
 
-local function getMagneticDeclination(point)
-    local lat, lon, _ = coord.LOtoLL(point)
-    return magvar.get_mag_decl(lat, lon) * 100
+local function getBearingDegFromTwoPoints(p1, p2)
+    local p1Lat, p1Lon, _ = coord.LOtoLL(p1)
+    local p2Lat, p2Lon, _ = coord.LOtoLL(p2)
+    local lat1rad = math.rad(p1Lat)
+    local lon1rad = math.rad(p1Lon)
+    local lat2rad = math.rad(p2Lat)
+    local lon2rad = math.rad(p2Lon)
+
+    local dLon = lon2rad - lon1rad
+    local y = math.sin(dLon) * math.cos(lat2rad)
+    local x = math.cos(lat1rad) * math.sin(lat2rad) - math.sin(lat1rad) * math.cos(lat2rad) * math.cos(dLon)
+
+    local northPosit = coord.LLtoLO(p1Lat + 1, p1Lon)
+    local trueNorthDeviationRad = math.atan2(northPosit.z - p1.z, northPosit.x - p1.x)
+
+    local bearingRad = math.atan2(y, x) - getMagneticDeclinationRad(p2) + trueNorthDeviationRad
+    return (math.deg(bearingRad) + 360) % 360
 end
 
 local function getBullseye(unit, groupCoalition)
@@ -121,8 +125,8 @@ local function getBullseye(unit, groupCoalition)
         return ", AT BULLSEYE.."
     end
 
-    local bearing = (math.floor(getBearingFromTwoPoints(bullsLO, unit:getPoint()) - getMagneticDeclination(unit:getPoint())) + 360) % 360
-    local bearingString = bearingToSingleDigits(bearing)
+    local bearingDeg = math.floor(getBearingDegFromTwoPoints(bullsLO, unit:getPoint()))
+    local bearingString = bearingToSingleDigits(bearingDeg)
 
     return "BULLSEYE, " .. bearingString .. ", " .. distanceNm .. ","
 end
@@ -317,14 +321,14 @@ local shotHandler = {}
 function shotHandler:onEvent(event)
     if event.id == world.event.S_EVENT_SHOT and event.weapon:getTarget() and isASpecifiedSAM(event.initiator, event.initiator:getCoalition()) and speaker[event.initiator:getCoalition()][event.initiator:getGroup():getName()] ~= nil then
         local target = event.weapon:getTarget()
-        local iPoint = event.initiator:getPoint()
-        local iCoalition = event.initiator:getCoalition()
-        local iCallsign = speaker[iCoalition][event.initiator:getGroup():getName()]["callsign"]
-        local tBullseye = getBullseye(target, iCoalition)
-        local impact = getImpact(event.initiator, target)
-        local message = buildSamMessage(iCallsign, tBullseye, impact)
-
         if (engagedTargets[target:getName()] == nil or engagedTargets[target:getName()] == false) then
+            local iPoint = event.initiator:getPoint()
+            local iCoalition = event.initiator:getCoalition()
+            local iCallsign = speaker[iCoalition][event.initiator:getGroup():getName()]["callsign"]
+            local tBullseye = getBullseye(target, iCoalition)
+            local impact = getImpact(event.initiator, target)
+            local message = buildSamMessage(iCallsign, tBullseye, impact)
+
             engagedTargets[target:getName()] = true
             table.insert(messages[iCoalition], { message = message, unitName = event.initiator:getGroup():getName(), callsign = iCallsign, initiatorPoint = iPoint, groupCoalition = iCoalition })
             checkMessagesToSend(iCoalition)
@@ -367,13 +371,13 @@ local liftingHandler = {}
 function liftingHandler:onEvent(event)
     if event.id == world.event.S_EVENT_TAKEOFF and coalitionWarningController[oppositeCoalition(event.initiator:getCoalition())] ~= nil then
         local liftedGroup = event.initiator:getGroup()
-        local oppositeICoalition = oppositeCoalition(event.initiator:getCoalition())
-        local wcCallsign = coalitionWarningController[oppositeICoalition]["callsign"]
-        local pName = event.place:getName()
-        local pBullseye = getBullseye(event.place, oppositeICoalition)
-        local message = buildLiftingMessage(wcCallsign, pName, pBullseye, liftedGroup:getSize())
-
         if (liftedGroups[liftedGroup:getName()] == nil or liftedGroups[liftedGroup:getName()] == false) then
+            local oppositeICoalition = oppositeCoalition(event.initiator:getCoalition())
+            local wcCallsign = coalitionWarningController[oppositeICoalition]["callsign"]
+            local pName = event.place:getName()
+            local pBullseye = getBullseye(event.place, oppositeICoalition)
+            local message = buildLiftingMessage(wcCallsign, pName, pBullseye, liftedGroup:getSize())
+
             liftedGroups[liftedGroup:getName()] = true
             local params = {
                 message = message,
