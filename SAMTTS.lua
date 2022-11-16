@@ -3,9 +3,12 @@
 --- @date: 2022-11-12
 --- DEPENDENCY: DCS-SimpleTextToSpeech.lua by CiriBob -- https://github.com/ciribob/DCS-SimpleTextToSpeech
 
+local magvar = require('magvar')
+
 SAMTTS = {}
 SAMTTS.googleTTS = false
 SAMTTS.debug = false
+
 
 local function selectRandomVoice()
     local voices = {
@@ -105,27 +108,9 @@ local function getBearingFromTwoPoints(p1, p2)
     return (math.deg(math.atan2(y, x)) + 360) % 360
 end
 
-local function getMagneticDeclination()
-    local theatre = env.mission.theatre
-    if theatre == "Caucasus" then
-        return 6
-    end
-    if theatre == "Nevada" then
-        return 12
-    end
-    if theatre == "Normandy" or theatre == "TheChannel" then
-        return -10
-    end
-    if theatre == "PersianGulf" then
-        return 2
-    end
-    if theatre == "Syria" then
-        return 5
-    end
-    if theatre == "MarianaIslands" then
-        return 2
-    end
-    return 0
+local function getMagneticDeclination(point)
+    local lat, lon, _ = coord.LOtoLL(point)
+    return magvar.get_mag_decl(lat, lon) * 100
 end
 
 local function getBullseye(unit, groupCoalition)
@@ -136,7 +121,7 @@ local function getBullseye(unit, groupCoalition)
         return ", AT BULLSEYE.."
     end
 
-    local bearing = (math.floor(getBearingFromTwoPoints(bullsLO, unit:getPoint()) - getMagneticDeclination() * 2) + 360) % 360
+    local bearing = (math.floor(getBearingFromTwoPoints(bullsLO, unit:getPoint()) - getMagneticDeclination(unit:getPoint())) + 360) % 360
     local bearingString = bearingToSingleDigits(bearing)
 
     return "BULLSEYE, " .. bearingString .. ", " .. distanceNm .. ","
