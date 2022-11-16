@@ -1,6 +1,6 @@
 --- @author: dMARLAN
---- @version: 1.4.1
---- @date: 2022-11-12
+--- @version: 1.4.2
+--- @date: 2022-11-15
 --- DEPENDENCY: DCS-SimpleTextToSpeech.lua by CiriBob -- https://github.com/ciribob/DCS-SimpleTextToSpeech
 
 local magvar = require('magvar')
