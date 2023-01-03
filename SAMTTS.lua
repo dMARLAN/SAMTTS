@@ -52,6 +52,7 @@ function SAMTTS.addSAM(unitName, callsign, pCoalition, freqs, modulation)
     end
     pCoalition = parseCoalitionString(pCoalition)
     speaker[pCoalition][unitName] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
+    env.info("SAMTTS: Added SAM " .. unitName .. callsign .. pCoalition .. freqs .. modulation)
 end
 
 local coalitionWarningController = {}
@@ -59,6 +60,7 @@ function SAMTTS.addWarningController(unitName, callsign, pCoalition, freqs, modu
     pCoalition = parseCoalitionString(pCoalition)
     coalitionWarningController[pCoalition] = { unitName = unitName, callsign = callsign }
     speaker[pCoalition][unitName] = { unitName = unitName, callsign = callsign, voice = selectRandomVoice(), freqs = freqs, modulation = modulation }
+    env.info("SAMTTS: Added Warning Controller: " .. unitName .. callsign .. pCoalition .. freqs .. modulation)
 end
 
 local function isASpecifiedSAM(samToCheck, pCoalition)
@@ -240,14 +242,15 @@ local function playMessage(message, unitName, callsign, initiatorPoint, pCoaliti
         )
     else
         STTS.TextToSpeech(
-                message,
-                speaker[pCoalition][unitName]["freqs"],
-                speaker[pCoalition][unitName]["modulation"],
+        message,
+        speaker[pCoalition][unitName]["freqs"],
+        speaker[pCoalition][unitName]["modulation"],
                 "1.0",
-                callsign,
-                pCoalition
+        callsign,
+        pCoalition
         )
     end
+    env.info("SAMTTS: " .. message)
 end
 
 local messages = {}
@@ -396,5 +399,6 @@ local function main()
     world.addEventHandler(shotHandler)
     world.addEventHandler(pilotDownHandler)
     world.addEventHandler(liftingHandler)
+    env.info("SAMTTS: Event handlers loaded")
 end
 main()
