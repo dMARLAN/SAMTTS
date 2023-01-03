@@ -2,8 +2,13 @@
 SAMTTS.googleTTS = true
 SAMTTS.debug = true
 
-SAMTTS.addSAM("CSGAD1", "KILO", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
-SAMTTS.addSAM("CSGAD2", "LIMA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
-SAMTTS.addSAM("PAT1", "PAPA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+local freqs = "257,251,255,262,259,268"
+local modulation = "AM, AM, AM, AM, AM, AM"
 
-SAMTTS.addWarningController("DSEA1", "DEEP SEA", "BLUE", "251,255,262,259,268", "AM,AM,AM,AM,AM")
+SAMTTS.addSAM("CSGAD NORTH (Kilo)", "KILO", "BLUE", freqs, modulation)
+SAMTTS.addSAM("CSGAD SOUTH (Lima)", "LIMA", "BLUE", freqs, modulation)
+SAMTTS.addSAM("BLUE-SAM Patriot (Papa)", "PAPA", "BLUE", freqs, modulation)
+SAMTTS.addSAM("BLUE-SAM NASAMS Hatay (Hotel)", "HOTEL", "BLUE", freqs, modulation)
+SAMTTS.addSAM("BLUE-SAM Patriot (Charlie)", "CHARLIE", "BLUE", freqs, modulation)
+
+SAMTTS.addWarningController("DSEA1", "DEEP SEA", "BLUE", freqs, modulation)
