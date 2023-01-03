@@ -250,7 +250,6 @@ local function playMessage(message, unitName, callsign, initiatorPoint, pCoaliti
         pCoalition
         )
     end
-    env.info("SAMTTS: " .. message)
 end
 
 local messages = {}
