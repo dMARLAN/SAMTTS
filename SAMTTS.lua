@@ -242,12 +242,12 @@ local function playMessage(message, unitName, callsign, initiatorPoint, pCoaliti
         )
     else
         STTS.TextToSpeech(
-        message,
-        speaker[pCoalition][unitName]["freqs"],
-        speaker[pCoalition][unitName]["modulation"],
+                message,
+                speaker[pCoalition][unitName]["freqs"],
+                speaker[pCoalition][unitName]["modulation"],
                 "1.0",
-        callsign,
-        pCoalition
+                callsign,
+                pCoalition
         )
     end
 end
